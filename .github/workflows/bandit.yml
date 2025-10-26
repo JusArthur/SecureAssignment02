@@ -1,10 +1,19 @@
 name: Bandit Security Scan
 
+# Trigger on push/PR to main (you can add more branches later)
 on:
   push:
     branches: [ "main" ]
+    paths:
+      - '**.py'          # only run when Python files change
   pull_request:
     branches: [ "main" ]
+    paths:
+      - '**.py'
+
+permissions:
+  contents: read
+  security-events: write   # needed for SARIF upload
 
 jobs:
   bandit:
@@ -21,5 +30,15 @@ jobs:
       - name: Install Bandit
         run: pip install bandit
 
-      - name: Run Bandit scan
-        run: bandit -r .
+      - name: Run Bandit (SARIF output)
+        # -f sarif → GitHub understands this format
+        # -o results.sarif → file name
+        # continue-on-error → CI passes even with findings
+        continue-on-error: true
+        run: bandit -r . -f sarif -o bandit-results.sarif
+
+      - name: Upload SARIF to GitHub Code Scanning
+        if: always()   # run even if Bandit step "fails"
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit-results.sarif
